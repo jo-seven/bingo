@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jugar Bingo</title>
+    <style>
+        table {
+            border-collapse: collapse;
+            margin: 10px;
+        }
+        table, th, td {
+            border: 1px solid black;
+            padding: 10px;
+            text-align: center;
+        }
+        .marked {
+            background-color: yellow;
+        }
+        .table-container {
+            display: flex;
+            flex-wrap: wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>Jugar Bingo</h1>
+    <div>
+        <label for="table-count">Cantidad de tablas:</label>
+        <input type="number" id="table-count" min="1" max="10" value="1">
+        <button onclick="generateTables()">Generar Tablas</button>
+        <button onclick="clearTables()">Limpiar Tablas</button>
+        <button onclick="initializeGame()">Inicializar Juego</button>
+    </div>
+    <div class="table-container" id="table-container"></div>
+    <br>
+    <label for="table-index">Número de tabla:</label>
+    <input type="number" id="table-index" min="1" value="1">
+    <label for="number-input">Ingrese un número para agregar a la tabla:</label>
+    <input type="number" id="number-input" min="1" max="75">
+    <button onclick="addNumber()">Agregar Número</button>
+    <br>
+    <label for="remove-number-input">Número a eliminar de la tabla:</label>
+    <input type="number" id="remove-number-input" min="1" max="75">
+    <button onclick="removeNumber()">Eliminar Número</button>
+    <br><br>
+    <label for="called-number">Número llamado:</label>
+    <input type="number" id="called-number" min="1" max="75">
+    <button onclick="markNumber()">Marcar Número</button>
+    <p id="result"></p>
+
+    <script>
+        let tables = [];
+        let savedTables = [];
+
+        function generateEmptyBingoCard() {
+            const card = [];
+            for (let i = 0; i < 5; i++) {
+                card[i] = [];
+                for (let j = 0; j < 5; j++) {
+                    if (i === 2 && j === 2) {
+                        card[i][j] = "FREE";
+                    } else {
+                        card[i][j] = "";
+                    }
+                }
+            }
+            return card;
+        }
+
+        function generateTables() {
+            const tableCount = parseInt(document.getElementById('table-count').value);
+            const tableContainer = document.getElementById('table-container');
+            tableContainer.innerHTML = '';
+            tables = [];
+
+            for (let k = 0; k < tableCount; k++) {
+                const table = generateEmptyBingoCard();
+                tables.push(table);
+
+                const tableDiv = document.createElement('div');
+                tableDiv.id = `table-${k}`;
+                const tableTitle = document.createElement('h2');
+                tableTitle.textContent = `Tabla ${k + 1}`;
+                tableDiv.appendChild(tableTitle);
+
+                const tableElement = document.createElement('table');
+                const headerRow = tableElement.insertRow();
+                const headers = ['B', 'I', 'N', 'G', 'O'];
+                for (let i = 0; i < 5; i++) {
+                    const cell = headerRow.insertCell();
+                    cell.textContent = headers[i];
+                }
+                for (let i = 0; i < 5; i++) {
+                    const row = tableElement.insertRow();
+                    for (let j = 0; j < 5; j++) {
+                        const cell = row.insertCell();
+                        cell.textContent = table[i][j];
+                        if (table[i][j] === "FREE") {
+                            cell.classList.add('marked');
+                        }
+                    }
+                }
+                tableDiv.appendChild(tableElement);
+                tableContainer.appendChild(tableDiv);
+            }
+            saveTables();
+        }
+
+        function clearTables() {
+            localStorage.removeItem('savedTables');
+            const tableContainer = document.getElementById('table-container');
+            tableContainer.innerHTML = '';
+            tables = [];
+            savedTables = [];
+        }
+
+        function initializeGame() {
+            const storedTables = localStorage.getItem('savedTables');
+            if (storedTables) {
+                tables = JSON.parse(storedTables);
+                updateAllTables();
+                document.getElementById('result').textContent = '';
+            }
+        }
+
+        function saveTables() {
+            localStorage.setItem('savedTables', JSON.stringify(tables));
+        }
+
+        function addNumber() {
+            const tableIndex = parseInt(document.getElementById('table-index').value) - 1;
+            const number = parseInt(document.getElementById('number-input').value);
+            if (tableIndex < 0 || tableIndex >= tables.length || isNaN(number) || number < 1 || number > 75) {
+                alert("Por favor ingrese un número de tabla y número válidos.");
+                return;
+            }
+            const card = tables[tableIndex];
+            const column = Math.floor((number - 1) / 15);
+            for (let i = 0; i < 5; i++) {
+                if (card[i][column] === "") {
+                    card[i][column] = number;
+                    updateTable(tableIndex);
+                    saveTables();
+                    return;
+                }
+            }
+            alert("La columna está llena, elija otro número.");
+        }
+
+        function removeNumber() {
+            const tableIndex = parseInt(document.getElementById('table-index').value) - 1;
+            const number = parseInt(document.getElementById('remove-number-input').value);
+            if (tableIndex < 0 || tableIndex >= tables.length || isNaN(number) || number < 1 || number > 75) {
+                alert("Por favor ingrese un número de tabla y número válidos.");
+                return;
+            }
+            const card = tables[tableIndex];
+            const column = Math.floor((number - 1) / 15);
+            for (let i = 0; i < 5; i++) {
+                if (card[i][column] === number) {
+                    card[i][column] = "";
+                    updateTable(tableIndex);
+                    saveTables();
+                    return;
+                }
+            }
+            alert("El número no se encuentra en la tabla.");
+        }
+
+        function markNumber() {
+            const number = parseInt(document.getElementById('called-number').value);
+            if (isNaN(number) || number < 1 || number > 75) {
+                alert("Por favor ingrese un número válido entre 1 y 75.");
+                return;
+            }
+            const column = Math.floor((number - 1) / 15);
+            for (let k = 0; k < tables.length; k++) {
+                const card = tables[k];
+                for (let i = 0; i < 5; i++) {
+                    if (card[i][column] === number) {
+                        card[i][column] = `(${number})`;
+                        updateTable(k);
+                        checkWin(k);
+                        break;
+                    }
+                }
+            }
+        }
+
+        function updateTable(tableIndex) {
+            const tableElement = document.getElementById(`table-${tableIndex}`).querySelector('table');
+            const card = tables[tableIndex];
+            for (let i = 0; i < 5; i++) {
+                for (let j = 0; j < 5; j++) {
+                    const cell = tableElement.rows[i + 1].cells[j];
+                    cell.textContent = card[i][j];
+                    if (typeof card[i][j] === 'string' && (card[i][j].startsWith('(') || card[i][j] === "FREE")) {
+                        cell.classList.add('marked');
+                    } else {
+                        cell.classList.remove('marked');
+                    }
+                }
+            }
+        }
+
+        function updateAllTables() {
+            const tableContainer = document.getElementById('table-container');
+            tableContainer.innerHTML = '';
+            for (let k = 0; k < tables.length; k++) {
+                const tableDiv = document.createElement('div');
+                tableDiv.id = `table-${k}`;
+                const tableTitle = document.createElement('h2');
+                tableTitle.textContent = `Tabla ${k + 1}`;
+                tableDiv.appendChild(tableTitle);
+
+                const tableElement = document.createElement('table');
+                const headerRow = tableElement.insertRow();
+                const headers = ['B', 'I', 'N', 'G', 'O'];
+                for (let i = 0; i < 5; i++) {
+                    const cell = headerRow.insertCell();
+                    cell.textContent = headers[i];
+                }
+                for (let i = 0; i < 5; i++) {
+                    const row = tableElement.insertRow();
+                    for (let j = 0; j < 5; j++) {
+                        const cell = row.insertCell();
+                        cell.textContent = tables[k][i][j];
+                        if (tables[k][i][j] === "FREE" || (typeof tables[k][i][j] === 'string' && tables[k][i][j].startsWith('('))) {
+                            cell.classList.add('marked');
+                        }
+                    }
+                }
+                tableDiv.appendChild(tableElement);
+                tableContainer.appendChild(tableDiv);
+            }
+        }
+
+        function checkWin(tableIndex) {
+            const card = tables[tableIndex];
+            const result = document.getElementById('result');
+
+            // Check rows
+            for (let i = 0; i < 5; i++) {
+                if (card[i].every(num => num === "FREE" || (typeof num === 'string' && num.startsWith('(')))) {
+                    result.textContent = `¡Tabla ${tableIndex + 1} ha ganado con una línea completa!`;
+                    return;
+                }
+            }
+
+            // Check columns
+            for (let j = 0; j < 5; j++) {
+                let colWin = true;
+                for (let i = 0; i < 5; i++) {
+                    if (card[i][j] !== "FREE" && !(typeof card[i][j] === 'string' && card[i][j].startsWith('('))) {
+                        colWin = false;
+                        break;
+                    }
+                }
+                if (colWin) {
+                    result.textContent = `¡Tabla ${tableIndex + 1} ha ganado con una columna completa!`;
+                    return;
+                }
+            }
+
+            // Check diagonals
+            let diag1Win = true, diag2Win = true;
+            for (let i = 0; i < 5; i++) {
+                if (card[i][i] !== "FREE" && !(typeof card[i][i] === 'string' && card[i][i].startsWith('('))) {
+                    diag1Win = false;
+                }
+                if (card[i][4 - i] !== "FREE" && !(typeof card[i][4 - i] === 'string' && card[i][4 - i].startsWith('('))) {
+                    diag2Win = false;
+                }
+            }
+            if (diag1Win || diag2Win) {
+                result.textContent = `¡Tabla ${tableIndex + 1} ha ganado con una diagonal completa!`;
+                return;
+            }
+
+            // Check full card
+            let fullWin = true;
+            for (let i = 0; i < 5; i++) {
+                for (let j = 0; j < 5; j++) {
+                    if (card[i][j] !== "FREE" && !(typeof card[i][j] === 'string' && card[i][j].startsWith('('))) {
+                        fullWin = false;
+                        break;
+                    }
+                }
+                if (!fullWin) break;
+            }
+            if (fullWin) {
+                result.textContent = `¡Tabla ${tableIndex + 1} ha ganado con una tabla llena!`;
+                return;
+            }
+        }
+
+        window.onload = initializeGame;
+    </script>
+</body>
+</html>
